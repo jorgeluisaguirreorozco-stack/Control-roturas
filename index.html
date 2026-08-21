@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de bajas por rotura</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0F1113; }
+  .cr-app {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #17191B;
+    color: #E9E7E1;
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .cr-header { background: #1F2224; border-bottom: 3px solid #E8A33D; padding: 18px 20px 16px; position: relative; }
+  .cr-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #E8A33D; text-transform: uppercase; font-weight: 700; margin: 0 0 4px; }
+  .cr-title { font-size: 20px; font-weight: 700; margin: 0; color: #F5F3EE; letter-spacing: -0.01em; }
+  .cr-date-pill { position: absolute; top: 18px; right: 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9B9E9F; background: #17191B; border: 1px solid #33373A; padding: 4px 8px; border-radius: 3px; }
+  .cr-body { padding: 18px 20px 40px; }
+  .cr-card { background: #1F2224; border: 1px solid #2E3235; border-radius: 6px; padding: 18px; margin-bottom: 16px; }
+  .cr-card-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #E8A33D; font-weight: 700; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+  .cr-card-label::before { content: ''; width: 8px; height: 8px; background: #E8A33D; display: inline-block; }
+  .cr-field { margin-bottom: 14px; }
+  .cr-field:last-child { margin-bottom: 0; }
+  .cr-field label { display: block; font-size: 12.5px; color: #ABAEB0; margin-bottom: 6px; font-weight: 500; }
+  .cr-field input { width: 100%; background: #17191B; border: 1px solid #33373A; color: #F5F3EE; border-radius: 4px; padding: 10px 11px; font-size: 15px; font-family: 'Inter', sans-serif; outline: none; }
+  .cr-field input:focus { border-color: #E8A33D; }
+  .cr-field.mono input { font-family: 'JetBrains Mono', monospace; }
+  .cr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cr-btn { width: 100%; background: #E8A33D; color: #241705; border: none; border-radius: 4px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .cr-btn:hover { background: #F0B25C; }
+  .cr-btn:disabled { background: #4A4D4F; color: #8A8D8F; cursor: not-allowed; }
+  .cr-btn-ghost { width: 100%; background: transparent; color: #ABAEB0; border: 1px solid #33373A; border-radius: 4px; padding: 10px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .cr-btn-ghost:hover { border-color: #E8A33D; color: #E8A33D; }
+  .cr-error { color: #E06565; font-size: 12.5px; margin-top: 6px; display: none; }
+  .cr-error.show { display: block; }
+  .cr-field input.cr-invalid { border-color: #E06565; }
+  .cr-session-bar { display: flex; justify-content: space-between; align-items: center; background: #232629; border: 1px solid #2E3235; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; }
+  .cr-session-bar .cr-who { color: #F5F3EE; font-weight: 600; }
+  .cr-session-bar .cr-where { color: #9B9E9F; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .cr-session-bar button { background: none; border: none; color: #E8A33D; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; padding: 4px 0; }
+  .cr-totals { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .cr-stat { background: #1F2224; border: 1px solid #2E3235; border-radius: 6px; padding: 12px 10px; text-align: center; }
+  .cr-stat .num { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: #E8A33D; display: block; }
+  .cr-stat .lbl { font-size: 10.5px; color: #9B9E9F; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; display: block; }
+  .cr-entry { background: #1F2224; border: 1px solid #2E3235; border-left: 3px solid #C0532E; border-radius: 4px; padding: 12px 14px; margin-bottom: 10px; }
+  .cr-entry-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; border-bottom: 1px dashed #33373A; padding-bottom: 8px; }
+  .cr-entry-code { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #F5F3EE; }
+  .cr-entry-lote { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9B9E9F; }
+  .cr-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+  .cr-entry-grid div { color: #ABAEB0; }
+  .cr-entry-grid b { color: #F5F3EE; font-weight: 600; }
+  .cr-entry-meta { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #33373A; display: flex; justify-content: space-between; font-size: 11px; color: #7C7F81; }
+  .cr-entry-del { background: none; border: none; color: #7C7F81; cursor: pointer; font-size: 11px; text-decoration: underline; font-family: 'Inter', sans-serif; }
+  .cr-entry-del:hover { color: #E06565; }
+  .cr-empty { text-align: center; padding: 30px 20px; color: #7C7F81; font-size: 13.5px; }
+  .cr-note { font-size: 11.5px; color: #7C7F81; line-height: 1.5; margin-top: -6px; margin-bottom: 16px; }
+  .cr-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2A6B4F; color: #E9F5EE; padding: 10px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.25s; pointer-events: none; max-width: 90%; text-align: center; }
+  .cr-toast.show { opacity: 1; }
+  .cr-spinner { text-align: center; padding: 30px; color: #7C7F81; font-size: 13px; }
+  .cr-config-warn { background: #3A2A17; border: 1px solid #E8A33D; color: #F5D9A3; padding: 12px 16px; border-radius: 6px; font-size: 12.5px; margin: 16px 20px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="cr-app" id="crApp">
+  <div class="cr-header">
+    <p class="cr-eyebrow">Control de inventario</p>
+    <h1 class="cr-title">Baja por rotura</h1>
+    <div class="cr-date-pill" id="crDatePill">--</div>
+  </div>
+  <div class="cr-body" id="crBody">
+    <div class="cr-spinner">Cargando...</div>
+  </div>
+</div>
+<div class="cr-toast" id="crToast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+
+  // ============================================================
+  // PASO OBLIGATORIO: pega aquí la URL de tu Apps Script Web App
+  // (termina en /exec). Ver README_INSTALACION.md para obtenerla.
+  // ============================================================
+  var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzFLGbOdodghDNrJ0CFqBUSweeOJaQ0A5vH0tLgv8MXUxEeqlhhPgh-q-yXRML0kgpo/exec';
+
+  var crBody = document.getElementById('crBody');
+  var crToast = document.getElementById('crToast');
+  var crDatePill = document.getElementById('crDatePill');
+
+  var session = null;
+  var entries = [];
+
+  function todayStr(){
+    var d = new Date();
+    var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return d.getDate() + ' ' + meses[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  crDatePill.textContent = todayStr();
+
+  function toast(msg){
+    crToast.textContent = msg;
+    crToast.classList.add('show');
+    setTimeout(function(){ crToast.classList.remove('show'); }, 2500);
+  }
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function configMissing(){
+    return !WEBAPP_URL || WEBAPP_URL.indexOf('PEGA_AQUI') === 0;
+  }
+
+  async function loadEntries(){
+    if (configMissing()) { entries = []; return; }
+    try {
+      var res = await fetch(WEBAPP_URL, { method: 'GET' });
+      var data = await res.json();
+      entries = (data && data.rows) ? data.rows.map(function(r){
+        return {
+          _id: r.ID,
+          bodegaCedis: r['Bodega/CEDIS'],
+          bodeguero: r.Bodeguero,
+          bodega: r.Bodega,
+          zona: r.Zona,
+          localizador: r.Localizador,
+          codigoProducto: r.CodigoProducto,
+          lote: r.Lote,
+          cantidadM2: r.CantidadM2,
+          cantidadCajas: r.CantidadCajas,
+          concepto: r.Concepto,
+          fecha: r.Fecha
+        };
+      }) : [];
+      entries.reverse();
+    } catch(e) {
+      entries = [];
+    }
+  }
+
+  function postToSheet(payload){
+    return fetch(WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.json(); });
+  }
+
+  function renderConfigWarning(){
+    crBody.innerHTML = '<div class="cr-config-warn">Falta configurar la conexión con Google Sheets. Abre este archivo index.html, busca la línea <b>WEBAPP_URL</b> y pega ahí la URL de tu Apps Script (ver README_INSTALACION.md). Mientras tanto puedes explorar el formulario, pero nada se guardará.</div>';
+  }
+
+  function renderLogin(){
+    var warn = configMissing() ? '<div class="cr-config-warn">Conexión con Google Sheets sin configurar. Los registros no se guardarán hasta que edites WEBAPP_URL en este archivo.</div>' : '';
+    crBody.innerHTML = warn +
+      '<div class="cr-card">' +
+        '<p class="cr-card-label">Ingreso</p>' +
+        '<p class="cr-note">Los registros se guardan en una hoja de Google Sheets compartida: todos los bodegueros que usen este enlace verán y podrán exportar los mismos datos.</p>' +
+        '<div class="cr-field">' +
+          '<label for="inNombre">Nombre del bodeguero</label>' +
+          '<input type="text" id="inNombre" placeholder="Ej. Juan Pérez" autocomplete="name">' +
+          '<div class="cr-error" id="errNombre">Ingresa tu nombre.</div>' +
+        '</div>' +
+        '<div class="cr-field">' +
+          '<label for="inBodega">Bodega / CEDIS</label>' +
+          '<input type="text" id="inBodega" placeholder="Ej. CEDIS Guayaquil">' +
+          '<div class="cr-error" id="errBodega">Ingresa la bodega o CEDIS.</div>' +
+        '</div>' +
+        '<div class="cr-field">' +
+          '<label>Fecha de ingreso</label>' +
+          '<input type="text" value="' + todayStr() + '" disabled style="opacity:0.6">' +
+        '</div>' +
+        '<div style="margin-top:16px;">' +
+          '<button class="cr-btn" id="btnIngresar">Iniciar registro</button>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('btnIngresar').addEventListener('click', function(){
+      var nombre = document.getElementById('inNombre').value.trim();
+      var bodega = document.getElementById('inBodega').value.trim();
+      var okN = nombre.length > 0;
+      var okB = bodega.length > 0;
+      document.getElementById('inNombre').classList.toggle('cr-invalid', !okN);
+      document.getElementById('errNombre').classList.toggle('show', !okN);
+      document.getElementById('inBodega').classList.toggle('cr-invalid', !okB);
+      document.getElementById('errBodega').classList.toggle('show', !okB);
+      if (!okN || !okB) return;
+      session = { nombre: nombre, bodega: bodega };
+      renderMain();
+    });
+  }
+
+  function computeTotals(){
+    var m2 = 0, cajas = 0;
+    for (var i = 0; i < entries.length; i++){
+      m2 += Number(entries[i].cantidadM2) || 0;
+      cajas += Number(entries[i].cantidadCajas) || 0;
+    }
+    return { count: entries.length, m2: m2, cajas: cajas };
+  }
+
+  function renderMain(){
+    var t = computeTotals();
+    crBody.innerHTML =
+      '<div class="cr-session-bar">' +
+        '<div><div class="cr-who">' + esc(session.nombre) + '</div><div class="cr-where">' + esc(session.bodega) + '</div></div>' +
+        '<button id="btnCambiar">Cambiar usuario</button>' +
+      '</div>' +
+      '<div class="cr-totals">' +
+        '<div class="cr-stat"><span class="num">' + t.count + '</span><span class="lbl">Registros</span></div>' +
+        '<div class="cr-stat"><span class="num">' + t.m2.toFixed(2) + '</span><span class="lbl">m² total</span></div>' +
+        '<div class="cr-stat"><span class="num">' + t.cajas.toFixed(0) + '</span><span class="lbl">Cajas total</span></div>' +
+      '</div>' +
+      '<div class="cr-card">' +
+        '<p class="cr-card-label">Nuevo registro</p>' +
+        '<div class="cr-row2">' +
+          '<div class="cr-field"><label for="fBodega">Bodega</label><input type="text" id="fBodega" value="' + esc(session.bodega) + '"></div>' +
+          '<div class="cr-field"><label for="fZona">Zona</label><input type="text" id="fZona" placeholder="Ej. Zona A"></div>' +
+        '</div>' +
+        '<div class="cr-field mono"><label for="fLocalizador">Localizador</label><input type="text" id="fLocalizador" placeholder="Ej. A-04-02"></div>' +
+        '<div class="cr-row2">' +
+          '<div class="cr-field mono"><label for="fCodigo">Código del producto</label><input type="text" id="fCodigo" placeholder="Ej. SKU-10234"></div>' +
+          '<div class="cr-field mono"><label for="fLote">Lote</label><input type="text" id="fLote" placeholder="Ej. L-9981"></div>' +
+        '</div>' +
+        '<div class="cr-row2">' +
+          '<div class="cr-field"><label for="fM2">Cantidad (m²)</label><input type="number" step="0.01" min="0" id="fM2" placeholder="0.00"></div>' +
+          '<div class="cr-field"><label for="fCajas">Cantidad secundaria (cajas)</label><input type="number" step="1" min="0" id="fCajas" placeholder="0"></div>' +
+        '</div>' +
+        '<div class="cr-field"><label for="fConcepto">Localizador de rotura / Concepto</label><input type="text" id="fConcepto" placeholder="Ej. B-12-01 - Caída en montacargas"></div>' +
+        '<div class="cr-error" id="errForm">Completa los campos obligatorios: bodega, código del producto y al menos una cantidad.</div>' +
+        '<div style="margin-top:14px;"><button class="cr-btn" id="btnGuardar">Guardar registro</button></div>' +
+      '</div>' +
+      '<div class="cr-card">' +
+        '<p class="cr-card-label">Historial compartido</p>' +
+        '<div id="crList"></div>' +
+        '<div style="margin-top:6px;"><button class="cr-btn-ghost" id="btnExportar">Exportar a Excel (.xlsx)</button></div>' +
+      '</div>';
+
+    document.getElementById('btnCambiar').addEventListener('click', function(){ session = null; renderLogin(); });
+    document.getElementById('btnGuardar').addEventListener('click', onGuardar);
+    document.getElementById('btnExportar').addEventListener('click', onExportar);
+    renderList();
+  }
+
+  async function onGuardar(){
+    if (configMissing()) { toast('Falta configurar WEBAPP_URL en el archivo.'); return; }
+    var bodega = document.getElementById('fBodega').value.trim();
+    var zona = document.getElementById('fZona').value.trim();
+    var localizador = document.getElementById('fLocalizador').value.trim();
+    var codigo = document.getElementById('fCodigo').value.trim();
+    var lote = document.getElementById('fLote').value.trim();
+    var m2 = document.getElementById('fM2').value;
+    var cajas = document.getElementById('fCajas').value;
+    var concepto = document.getElementById('fConcepto').value.trim();
+
+    var valid = bodega.length > 0 && codigo.length > 0 && (m2 !== '' || cajas !== '');
+    document.getElementById('errForm').classList.toggle('show', !valid);
+    if (!valid) return;
+
+    var btn = document.getElementById('btnGuardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    var payload = {
+      action: 'add',
+      bodeguero: session.nombre,
+      bodegaSesion: session.bodega,
+      fecha: todayStr(),
+      bodega: bodega, zona: zona, localizador: localizador,
+      codigoProducto: codigo, lote: lote,
+      cantidadM2: m2 === '' ? 0 : Number(m2),
+      cantidadCajas: cajas === '' ? 0 : Number(cajas),
+      concepto: concepto
+    };
+
+    try {
+      var result = await postToSheet(payload);
+      if (!result || !result.ok) throw new Error(result && result.error);
+      await loadEntries();
+      renderMain();
+      toast('Registro guardado en Google Sheets');
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = 'Guardar registro';
+      toast('No se pudo guardar. Revisa tu conexión.');
+    }
+  }
+
+  function renderList(){
+    var listEl = document.getElementById('crList');
+    if (!listEl) return;
+    if (entries.length === 0) {
+      listEl.innerHTML = '<div class="cr-empty">Aún no hay registros. El primero que guardes aparecerá aquí.</div>';
+      return;
+    }
+    var html = '';
+    var toShow = entries.slice(0, 25);
+    for (var i = 0; i < toShow.length; i++){
+      var e = toShow[i];
+      html +=
+        '<div class="cr-entry">' +
+          '<div class="cr-entry-top"><span class="cr-entry-code">' + esc(e.codigoProducto) + '</span><span class="cr-entry-lote">' + (e.lote ? 'Lote ' + esc(e.lote) : '') + '</span></div>' +
+          '<div class="cr-entry-grid">' +
+            '<div>Bodega <b>' + esc(e.bodega) + '</b></div>' +
+            '<div>Zona <b>' + esc(e.zona || '-') + '</b></div>' +
+            '<div>Localizador <b>' + esc(e.localizador || '-') + '</b></div>' +
+            '<div>m² <b>' + Number(e.cantidadM2 || 0).toFixed(2) + '</b></div>' +
+            '<div>Cajas <b>' + Number(e.cantidadCajas || 0).toFixed(0) + '</b></div>' +
+            '<div>Concepto <b>' + esc(e.concepto || '-') + '</b></div>' +
+          '</div>' +
+          '<div class="cr-entry-meta"><span>' + esc(e.bodegaCedis) + ' · ' + esc(e.bodeguero) + ' · ' + esc(e.fecha) + '</span><button class="cr-entry-del" data-id="' + esc(e._id) + '">Eliminar</button></div>' +
+        '</div>';
+    }
+    if (entries.length > 25) {
+      html += '<div class="cr-note" style="margin-top:8px;">Mostrando los 25 más recientes de ' + entries.length + '. La exportación incluye todos.</div>';
+    }
+    listEl.innerHTML = html;
+
+    var delBtns = listEl.querySelectorAll('.cr-entry-del');
+    for (var j = 0; j < delBtns.length; j++){
+      delBtns[j].addEventListener('click', async function(ev){
+        var id = ev.target.getAttribute('data-id');
+        ev.target.textContent = '...';
+        try {
+          await postToSheet({ action: 'delete', id: id });
+          await loadEntries();
+          renderMain();
+          toast('Registro eliminado');
+        } catch(e) {
+          toast('No se pudo eliminar.');
+        }
+      });
+    }
+  }
+
+  function onExportar(){
+    if (entries.length === 0){ toast('No hay registros para exportar.'); return; }
+    var rows = entries.slice().reverse().map(function(e){
+      return {
+        'Bodega/CEDIS': e.bodegaCedis, 'Fecha': e.fecha, 'Bodeguero': e.bodeguero, 'Bodega': e.bodega, 'Zona': e.zona,
+        'Localizador': e.localizador, 'Código del producto': e.codigoProducto, 'Lote': e.lote,
+        'Cantidad (m2)': Number(e.cantidadM2 || 0), 'Cantidad secundaria (cajas)': Number(e.cantidadCajas || 0),
+        'Localizador de rotura / Concepto': e.concepto
+      };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:16},{wch:12},{wch:18},{wch:16},{wch:10},{wch:14},{wch:20},{wch:12},{wch:14},{wch:22},{wch:30}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bajas por rotura');
+    XLSX.writeFile(wb, 'bajas_rotura_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    toast('Descargando archivo');
+  }
+
+  (async function init(){
+    await loadEntries();
+    renderLogin();
+  })();
+})();
+</script>
+</body>
+</html>
