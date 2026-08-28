@@ -36,6 +36,7 @@
   .cr-btn:disabled { background: #4A4D4F; color: #8A8D8F; cursor: not-allowed; }
   .cr-btn-ghost { width: 100%; background: transparent; color: #ABAEB0; border: 1px solid #33373A; border-radius: 4px; padding: 10px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; }
   .cr-btn-ghost:hover { border-color: #E8A33D; color: #E8A33D; }
+  .cr-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
   .cr-error { color: #E06565; font-size: 12.5px; margin-top: 6px; display: none; }
   .cr-error.show { display: block; }
   .cr-field input.cr-invalid { border-color: #E06565; }
@@ -54,9 +55,12 @@
   .cr-entry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
   .cr-entry-grid div { color: #ABAEB0; }
   .cr-entry-grid b { color: #F5F3EE; font-weight: 600; }
-  .cr-entry-meta { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #33373A; display: flex; justify-content: space-between; font-size: 11px; color: #7C7F81; }
-  .cr-entry-del { background: none; border: none; color: #7C7F81; cursor: pointer; font-size: 11px; text-decoration: underline; font-family: 'Inter', sans-serif; }
+  .cr-entry-meta { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #33373A; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #7C7F81; gap: 8px; }
+  .cr-entry-meta .cr-entry-actions { display: flex; gap: 14px; flex-shrink: 0; }
+  .cr-entry-del { background: none; border: none; color: #7C7F81; cursor: pointer; font-size: 11px; text-decoration: underline; font-family: 'Inter', sans-serif; white-space: nowrap; }
   .cr-entry-del:hover { color: #E06565; }
+  .cr-entry-proc { background: none; border: none; color: #6FAE8C; cursor: pointer; font-size: 11px; text-decoration: underline; font-family: 'Inter', sans-serif; font-weight: 600; white-space: nowrap; }
+  .cr-entry-proc:hover { color: #8FD1AE; }
   .cr-empty { text-align: center; padding: 30px 20px; color: #7C7F81; font-size: 13.5px; }
   .cr-note { font-size: 11.5px; color: #7C7F81; line-height: 1.5; margin-top: -6px; margin-bottom: 16px; }
   .cr-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2A6B4F; color: #E9F5EE; padding: 10px 18px; border-radius: 5px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.25s; pointer-events: none; max-width: 90%; text-align: center; }
@@ -129,32 +133,43 @@
     return !WEBAPP_URL || WEBAPP_URL.indexOf('PEGA_AQUI') === 0;
   }
 
+  function mapRow_(r){
+    return {
+      _id: r.ID,
+      bodegaCedis: r['Bodega/CEDIS'],
+      bodeguero: r.Bodeguero,
+      bodega: r.Bodega,
+      zona: r.Zona,
+      localizador: r.Localizador,
+      codigoProducto: r.CodigoProducto,
+      descripcionProducto: r.DescripcionProducto,
+      lote: r.Lote,
+      cantidadM2: r.CantidadM2,
+      cantidadCajas: r.CantidadCajas,
+      concepto: r.Concepto,
+      fecha: r.Fecha,
+      fechaProcesado: r.FechaProcesado
+    };
+  }
+
+  // Solo trae lo PENDIENTE de procesar (el backend ya filtra lo procesado)
   async function loadEntries(){
     if (configMissing()) { entries = []; return; }
     try {
       var res = await fetch(WEBAPP_URL, { method: 'GET' });
       var data = await res.json();
-      entries = (data && data.rows) ? data.rows.map(function(r){
-        return {
-          _id: r.ID,
-          bodegaCedis: r['Bodega/CEDIS'],
-          bodeguero: r.Bodeguero,
-          bodega: r.Bodega,
-          zona: r.Zona,
-          localizador: r.Localizador,
-          codigoProducto: r.CodigoProducto,
-          descripcionProducto: r.DescripcionProducto,
-          lote: r.Lote,
-          cantidadM2: r.CantidadM2,
-          cantidadCajas: r.CantidadCajas,
-          concepto: r.Concepto,
-          fecha: r.Fecha
-        };
-      }) : [];
+      entries = (data && data.rows) ? data.rows.map(mapRow_) : [];
       entries.reverse();
     } catch(e) {
       entries = [];
     }
+  }
+
+  // Trae el histórico de lo YA procesado (para exportar aparte, no se muestra en pantalla)
+  async function loadHistorial(){
+    var res = await fetch(WEBAPP_URL + '?action=history');
+    var data = await res.json();
+    return (data && data.rows) ? data.rows.map(mapRow_) : [];
   }
 
   async function loadCatalogo(){
@@ -273,14 +288,19 @@
         '<div style="margin-top:14px;"><button class="cr-btn" id="btnGuardar">Guardar registro</button></div>' +
       '</div>' +
       '<div class="cr-card">' +
-        '<p class="cr-card-label">Historial compartido</p>' +
+        '<p class="cr-card-label">Historial compartido (pendiente de revisar)</p>' +
+        '<p class="cr-note">Al marcar un registro como <b>Procesado</b>, desaparece de esta lista para que no se vuelva a bajar, pero queda guardado en el histórico.</p>' +
         '<div id="crList"></div>' +
-        '<div style="margin-top:6px;"><button class="cr-btn-ghost" id="btnExportar">Exportar a Excel (.xlsx)</button></div>' +
+        '<div class="cr-row2" style="margin-top:6px;">' +
+          '<button class="cr-btn-ghost" id="btnExportar">Exportar pendientes (.xlsx)</button>' +
+          '<button class="cr-btn-ghost" id="btnHistorico">Descargar histórico procesado (.xlsx)</button>' +
+        '</div>' +
       '</div>';
 
     document.getElementById('btnCambiar').addEventListener('click', function(){ session = null; renderLogin(); });
     document.getElementById('btnGuardar').addEventListener('click', onGuardar);
     document.getElementById('btnExportar').addEventListener('click', onExportar);
+    document.getElementById('btnHistorico').addEventListener('click', onExportarHistorico);
     attachCodigoAutocomplete();
     renderList();
   }
@@ -395,7 +415,7 @@
     var listEl = document.getElementById('crList');
     if (!listEl) return;
     if (entries.length === 0) {
-      listEl.innerHTML = '<div class="cr-empty">Aún no hay registros. El primero que guardes aparecerá aquí.</div>';
+      listEl.innerHTML = '<div class="cr-empty">Aún no hay registros pendientes. El primero que guardes aparecerá aquí.</div>';
       return;
     }
     var html = '';
@@ -414,11 +434,17 @@
             '<div>Cajas <b>' + Number(e.cantidadCajas || 0).toFixed(0) + '</b></div>' +
             '<div>Concepto <b>' + esc(e.concepto || '-') + '</b></div>' +
           '</div>' +
-          '<div class="cr-entry-meta"><span>' + esc(e.bodegaCedis) + ' · ' + esc(e.bodeguero) + ' · ' + esc(e.fecha) + '</span><button class="cr-entry-del" data-id="' + esc(e._id) + '">Eliminar</button></div>' +
+          '<div class="cr-entry-meta">' +
+            '<span>' + esc(e.bodegaCedis) + ' · ' + esc(e.bodeguero) + ' · ' + esc(e.fecha) + '</span>' +
+            '<span class="cr-entry-actions">' +
+              '<button class="cr-entry-proc" data-id="' + esc(e._id) + '">✔ Procesado</button>' +
+              '<button class="cr-entry-del" data-id="' + esc(e._id) + '">Eliminar</button>' +
+            '</span>' +
+          '</div>' +
         '</div>';
     }
     if (entries.length > 25) {
-      html += '<div class="cr-note" style="margin-top:8px;">Mostrando los 25 más recientes de ' + entries.length + '. La exportación incluye todos.</div>';
+      html += '<div class="cr-note" style="margin-top:8px;">Mostrando los 25 más recientes de ' + entries.length + '. La exportación incluye todos los pendientes.</div>';
     }
     listEl.innerHTML = html;
 
@@ -437,11 +463,26 @@
         }
       });
     }
+
+    var procBtns = listEl.querySelectorAll('.cr-entry-proc');
+    for (var k = 0; k < procBtns.length; k++){
+      procBtns[k].addEventListener('click', async function(ev){
+        var id = ev.target.getAttribute('data-id');
+        ev.target.textContent = '...';
+        try {
+          await postToSheet({ action: 'procesar', id: id });
+          await loadEntries();
+          renderMain();
+          toast('Registro marcado como procesado');
+        } catch(e) {
+          toast('No se pudo marcar como procesado.');
+        }
+      });
+    }
   }
 
-  function onExportar(){
-    if (entries.length === 0){ toast('No hay registros para exportar.'); return; }
-    var rows = entries.slice().reverse().map(function(e){
+  function exportRowsToXlsx_(rows, filenamePrefix){
+    var data = rows.map(function(e){
       return {
         'Bodega/CEDIS': e.bodegaCedis, 'Fecha': e.fecha, 'Bodeguero': e.bodeguero, 'Bodega': e.bodega, 'Zona': e.zona,
         'Localizador': e.localizador, 'Código del producto': e.codigoProducto,
@@ -450,12 +491,34 @@
         'Localizador de rotura / Concepto': e.concepto
       };
     });
-    var ws = XLSX.utils.json_to_sheet(rows);
+    var ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [{wch:16},{wch:12},{wch:18},{wch:16},{wch:10},{wch:14},{wch:20},{wch:26},{wch:12},{wch:14},{wch:22},{wch:30}];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Bajas por rotura');
-    XLSX.writeFile(wb, 'bajas_rotura_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    XLSX.writeFile(wb, filenamePrefix + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  }
+
+  function onExportar(){
+    if (entries.length === 0){ toast('No hay registros pendientes para exportar.'); return; }
+    exportRowsToXlsx_(entries.slice().reverse(), 'bajas_rotura_pendientes');
     toast('Descargando archivo');
+  }
+
+  async function onExportarHistorico(){
+    var btn = document.getElementById('btnHistorico');
+    btn.disabled = true;
+    btn.textContent = 'Cargando...';
+    try {
+      var historial = await loadHistorial();
+      if (historial.length === 0) { toast('Aún no hay registros procesados.'); return; }
+      exportRowsToXlsx_(historial.slice().reverse(), 'bajas_rotura_historico');
+      toast('Descargando histórico');
+    } catch(e) {
+      toast('No se pudo descargar el histórico.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Descargar histórico procesado (.xlsx)';
+    }
   }
 
   (async function init(){
